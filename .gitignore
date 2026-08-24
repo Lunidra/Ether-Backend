@@ -1,0 +1,34 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Build output
+/bin/
+/build/
+/dist/
+
+# Test / coverage
+*.test
+*.out
+coverage.out
+coverage.html
+
+# IDEs
+.idea/
+.vscode/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Local configuration
+config.local.*
