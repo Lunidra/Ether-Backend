@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -165,7 +164,6 @@ func (h *Handler) Verify(
 
 	profile, verified, err :=
 		h.service.Mojang().HasJoined(
-			context.Background(),
 			client.Username,
 			payload.ServerID,
 		)

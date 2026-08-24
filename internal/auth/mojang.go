@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -9,12 +8,12 @@ import (
 	"time"
 )
 
-type MojangVerifier struct {
+type HTTPMojangVerifier struct {
 	client *http.Client
 }
 
-func NewMojangVerifier() *MojangVerifier {
-	return &MojangVerifier{
+func NewMojangVerifier() *HTTPMojangVerifier {
+	return &HTTPMojangVerifier{
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -26,8 +25,7 @@ type MojangProfile struct {
 	Name string `json:"name"`
 }
 
-func (v *MojangVerifier) HasJoined(
-	ctx context.Context,
+func (v *HTTPMojangVerifier) HasJoined(
 	username string,
 	serverID string,
 ) (MojangProfile, bool, error) {
@@ -48,8 +46,7 @@ func (v *MojangVerifier) HasJoined(
 		"https://sessionserver.mojang.com/session/minecraft/hasJoined?" +
 			query.Encode()
 
-	request, err := http.NewRequestWithContext(
-		ctx,
+	request, err := http.NewRequest(
 		http.MethodGet,
 		endpoint,
 		nil,
@@ -79,16 +76,13 @@ func (v *MojangVerifier) HasJoined(
 		if err := json.NewDecoder(
 			response.Body,
 		).Decode(&profile); err != nil {
-
 			return MojangProfile{}, false, fmt.Errorf(
 				"invalid Mojang response: %w",
 				err,
 			)
 		}
 
-		if profile.ID == "" ||
-			profile.Name == "" {
-
+		if profile.ID == "" || profile.Name == "" {
 			return MojangProfile{}, false, fmt.Errorf(
 				"invalid Mojang profile response",
 			)
@@ -97,11 +91,9 @@ func (v *MojangVerifier) HasJoined(
 		return profile, true, nil
 
 	case http.StatusNoContent:
-
 		return MojangProfile{}, false, nil
 
 	default:
-
 		return MojangProfile{}, false, fmt.Errorf(
 			"Mojang returned HTTP %d",
 			response.StatusCode,
