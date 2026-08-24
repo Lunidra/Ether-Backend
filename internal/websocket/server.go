@@ -35,10 +35,18 @@ type Server struct {
 }
 
 func NewServer(addr string) *Server {
+	return NewServerWithService(
+		addr,
+		auth.NewService(),
+	)
+}
+
+func NewServerWithService(
+	addr string,
+	authService *auth.Service,
+) *Server {
 
 	router := protocol.NewRouter()
-
-	authService := auth.NewService()
 
 	authHandler :=
 		auth.NewHandler(
@@ -65,12 +73,22 @@ func NewServer(addr string) *Server {
 	}
 }
 
-func (s *Server) Start() error {
+// Handler returns the HTTP handler used by the backend.
+//
+// This is useful for integration tests and also gives us a clean
+// boundary for eventually putting the backend behind nginx.
+func (s *Server) Handler() http.Handler {
+	mux := http.NewServeMux()
 
-	http.HandleFunc(
+	mux.HandleFunc(
 		"/ws",
 		s.handleWebSocket,
 	)
+
+	return mux
+}
+
+func (s *Server) Start() error {
 
 	log.Printf(
 		"Ether Backend listening on %s",
@@ -84,7 +102,7 @@ func (s *Server) Start() error {
 
 	return http.ListenAndServe(
 		s.addr,
-		nil,
+		s.Handler(),
 	)
 }
 

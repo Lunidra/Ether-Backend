@@ -1,12 +1,16 @@
 package tests
 
 import (
-	"net/http"
+	"encoding/json"
 	"net/http/httptest"
-	"net/url"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/gorilla/websocket"
 
 	"github.com/Lunidra/Ether-Backend/internal/auth"
+	etherws "github.com/Lunidra/Ether-Backend/internal/websocket"
 )
 
 type mockMojangVerifier struct {
@@ -30,8 +34,7 @@ func (m *mockMojangVerifier) HasJoined(
 }
 
 func TestMojangVerifierSuccess(t *testing.T) {
-	// This test validates the verifier contract without
-	// requiring a real Minecraft account.
+
 	verifier := &mockMojangVerifier{
 		profile: auth.MojangProfile{
 			ID:   "test-profile-id",
@@ -136,6 +139,242 @@ func TestMojangVerifierError(
 	}
 }
 
+func TestAuthenticationFlow(
+	t *testing.T,
+) {
+
+	verifier := &mockMojangVerifier{
+		profile: auth.MojangProfile{
+			ID:   "test-profile-id",
+			Name: "TestPlayer",
+		},
+		verified: true,
+	}
+
+	authService :=
+		auth.NewServiceWithVerifier(
+			verifier,
+		)
+
+	server :=
+		etherws.NewServerWithService(
+			"",
+			authService,
+		)
+
+	httpServer :=
+		httptest.NewServer(
+			server.Handler(),
+		)
+
+	defer httpServer.Close()
+
+	wsURL := "ws" +
+		strings.TrimPrefix(
+			httpServer.URL,
+			"http",
+		) +
+		"/ws"
+
+	connection, _, err :=
+		websocket.DefaultDialer.Dial(
+			wsURL,
+			nil,
+		)
+
+	if err != nil {
+		t.Fatalf(
+			"failed to connect to Ether Backend: %v",
+			err,
+		)
+	}
+
+	defer connection.Close()
+
+	t.Log(
+		"connected to Ether Backend",
+	)
+
+	identify := map[string]any{
+		"type":     "auth_identify",
+		"uuid":     "test-profile-id",
+		"username": "TestPlayer",
+	}
+
+	if err := connection.WriteJSON(
+		identify,
+	); err != nil {
+
+		t.Fatalf(
+			"failed to send auth_identify: %v",
+			err,
+		)
+	}
+
+	t.Log(
+		"sent auth_identify",
+	)
+
+	challengeMessage :=
+		readMessage(
+			t,
+			connection,
+		)
+
+	if challengeMessage["type"] !=
+		"auth_challenge" {
+
+		t.Fatalf(
+			"expected auth_challenge, got %v",
+			challengeMessage["type"],
+		)
+	}
+
+	serverID, ok :=
+		challengeMessage["serverId"].(string)
+
+	if !ok || serverID == "" {
+		t.Fatal(
+			"auth_challenge did not contain serverId",
+		)
+	}
+
+	t.Logf(
+		"received challenge: %s",
+		serverID,
+	)
+
+	verify := map[string]any{
+		"type":     "auth_verify",
+		"serverId": serverID,
+	}
+
+	if err := connection.WriteJSON(
+		verify,
+	); err != nil {
+
+		t.Fatalf(
+			"failed to send auth_verify: %v",
+			err,
+		)
+	}
+
+	t.Log(
+		"sent auth_verify",
+	)
+
+	successMessage :=
+		readMessage(
+			t,
+			connection,
+		)
+
+	if successMessage["type"] !=
+		"auth_success" {
+
+		t.Fatalf(
+			"expected auth_success, got %v",
+			successMessage["type"],
+		)
+	}
+
+	token, ok :=
+		successMessage["token"].(string)
+
+	if !ok || token == "" {
+		t.Fatal(
+			"auth_success did not contain token",
+		)
+	}
+
+	t.Logf(
+		"received authentication token: %s",
+		token,
+	)
+
+	if verifier.lastUsername !=
+		"TestPlayer" {
+
+		t.Fatalf(
+			"Mojang verifier received wrong username: %q",
+			verifier.lastUsername,
+		)
+	}
+
+	if verifier.lastServerID != serverID {
+
+		t.Fatalf(
+			"Mojang verifier received wrong serverId: %q",
+			verifier.lastServerID,
+		)
+	}
+
+	// The challenge must be consumed after successful
+	// authentication. Reusing it must therefore fail.
+	if err := connection.WriteJSON(
+		verify,
+	); err != nil {
+
+		t.Fatalf(
+			"failed to send replay auth_verify: %v",
+			err,
+		)
+	}
+
+	// The server currently logs rejected packets rather than
+	// returning protocol error packets, so we simply make sure
+	// no second auth_success is generated.
+	_ = connection.SetReadDeadline(
+		time.Now().Add(250 * time.Millisecond),
+	)
+
+	_, _, err =
+		connection.ReadMessage()
+
+	if err == nil {
+		t.Fatal(
+			"expected replayed challenge to produce no response",
+		)
+	}
+
+	t.Log(
+		"challenge replay correctly rejected",
+	)
+}
+
+func readMessage(
+	t *testing.T,
+	connection *websocket.Conn,
+) map[string]any {
+
+	t.Helper()
+
+	_, data, err :=
+		connection.ReadMessage()
+
+	if err != nil {
+		t.Fatalf(
+			"failed to read server message: %v",
+			err,
+		)
+	}
+
+	var message map[string]any
+
+	if err := json.Unmarshal(
+		data,
+		&message,
+	); err != nil {
+
+		t.Fatalf(
+			"invalid JSON from server: %v",
+			err,
+		)
+	}
+
+	return message
+}
+
 type testError struct {
 	message string
 }
@@ -144,11 +383,5 @@ func (e *testError) Error() string {
 	return e.message
 }
 
-// Keep the HTTP imports exercised here so we can immediately
-// extend this file with HTTP-level verifier tests without
-// changing the test structure.
-var (
-	_ = http.MethodGet
-	_ = httptest.NewServer
-	_ = url.Values{}
-)
+// Keep url imported while this test evolves toward testing
+// external HTTP endpoint construction.
