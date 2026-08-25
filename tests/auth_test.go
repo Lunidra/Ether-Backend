@@ -196,7 +196,7 @@ func TestAuthenticationFlow(
 	)
 
 	identify := map[string]any{
-		"type":     "auth_identify",
+		"type":     "auth_hello",
 		"uuid":     "test-profile-id",
 		"username": "TestPlayer",
 	}
@@ -206,13 +206,13 @@ func TestAuthenticationFlow(
 	); err != nil {
 
 		t.Fatalf(
-			"failed to send auth_identify: %v",
+			"failed to send auth_hello: %v",
 			err,
 		)
 	}
 
 	t.Log(
-		"sent auth_identify",
+		"sent auth_hello",
 	)
 
 	challengeMessage :=
@@ -381,6 +381,35 @@ type testError struct {
 
 func (e *testError) Error() string {
 	return e.message
+}
+
+func TestDevelopmentVerifier(t *testing.T) {
+	verifier := auth.NewDevelopmentVerifier()
+
+	profile, verified, err := verifier.HasJoined(
+		"Player676",
+		"development-test",
+	)
+
+	if err != nil {
+		t.Fatalf(
+			"expected no error, got %v",
+			err,
+		)
+	}
+
+	if !verified {
+		t.Fatal(
+			"expected development account to be verified",
+		)
+	}
+
+	if profile.Name != "Player676" {
+		t.Fatalf(
+			"expected Player676, got %q",
+			profile.Name,
+		)
+	}
 }
 
 // Keep url imported while this test evolves toward testing

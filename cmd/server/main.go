@@ -14,7 +14,8 @@ func main() {
 		addr = "127.0.0.1:2832"
 	}
 
-	server := websocket.NewServer(addr)
+	//	server := websocket.NewServer(addr)
+	server := websocket.NewDevelopmentServer(":2832")
 
 	if err := server.Start(); err != nil {
 		log.Fatal(err)

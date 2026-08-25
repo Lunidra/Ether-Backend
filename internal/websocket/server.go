@@ -54,7 +54,7 @@ func NewServerWithService(
 		)
 
 	router.Register(
-		"auth_identify",
+		"auth_hello",
 		authHandler.Identify,
 	)
 
@@ -71,6 +71,16 @@ func NewServerWithService(
 		clients:     session.NewManager(),
 		authService: authService,
 	}
+}
+
+// DEV SERVER
+func NewDevelopmentServer(addr string) *Server {
+	return NewServerWithService(
+		addr,
+		auth.NewServiceWithVerifier(
+			auth.NewDevelopmentVerifier(),
+		),
+	)
 }
 
 // Handler returns the HTTP handler used by the backend.
