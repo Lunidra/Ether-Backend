@@ -8,6 +8,12 @@ import (
 	gws "github.com/gorilla/websocket"
 )
 
+type Presence struct {
+	Server      string
+	ServerIP    string
+	GameVersion string
+}
+
 type Client struct {
 	ID string
 
@@ -21,6 +27,8 @@ type Client struct {
 
 	UUID     string
 	Username string
+
+	Presence Presence
 }
 
 func NewClient(conn *gws.Conn) *Client {
@@ -39,4 +47,25 @@ func (c *Client) Send(data []byte) error {
 		gws.TextMessage,
 		data,
 	)
+}
+
+func (c *Client) SetPresence(presence Presence) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.Presence = presence
+}
+
+func (c *Client) GetPresence() Presence {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.Presence
+}
+
+func (c *Client) Identity() (uuid string, username string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.UUID, c.Username
 }

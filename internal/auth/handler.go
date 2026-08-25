@@ -20,12 +20,17 @@ type VerifyPayload struct {
 }
 
 type Handler struct {
-	service *Service
+	service         *Service
+	onAuthenticated func(*session.Client)
 }
 
-func NewHandler(service *Service) *Handler {
+func NewHandler(
+	service *Service,
+	onAuthenticated func(*session.Client),
+) *Handler {
 	return &Handler{
-		service: service,
+		service:         service,
+		onAuthenticated: onAuthenticated,
 	}
 }
 
@@ -199,6 +204,9 @@ func (h *Handler) Verify(
 	}
 
 	client.Authenticated = true
+	if h.onAuthenticated != nil {
+		h.onAuthenticated(client)
+	}
 
 	log.Printf(
 		"authenticated %s (%s)",

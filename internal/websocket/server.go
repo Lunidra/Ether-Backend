@@ -7,6 +7,7 @@ import (
 	gws "github.com/gorilla/websocket"
 
 	"github.com/Lunidra/Ether-Backend/internal/auth"
+	"github.com/Lunidra/Ether-Backend/internal/presence"
 	"github.com/Lunidra/Ether-Backend/internal/protocol"
 	"github.com/Lunidra/Ether-Backend/internal/session"
 )
@@ -28,10 +29,12 @@ var upgrader = gws.Upgrader{
 }
 
 type Server struct {
-	addr        string
-	router      *protocol.Router
-	clients     *session.Manager
-	authService *auth.Service
+	addr            string
+	router          *protocol.Router
+	clients         *session.Manager
+	authService     *auth.Service
+	presenceManager *presence.Manager
+	//presenceHandler *presence.Handler
 }
 
 func NewServer(addr string) *Server {
@@ -48,10 +51,23 @@ func NewServerWithService(
 
 	router := protocol.NewRouter()
 
-	authHandler :=
-		auth.NewHandler(
-			authService,
-		)
+	clients := session.NewManager()
+
+	presenceManager := presence.NewManager(
+		clients,
+	)
+
+	authHandler := auth.NewHandler(
+		authService,
+		func(client *session.Client) {
+			if err := presenceManager.Join(client); err != nil {
+				log.Printf(
+					"failed to broadcast user join: %v",
+					err,
+				)
+			}
+		},
+	)
 
 	router.Register(
 		"auth_hello",
@@ -63,13 +79,28 @@ func NewServerWithService(
 		authHandler.Verify,
 	)
 
+	presenceHandler := presence.NewHandler(
+		presenceManager,
+	)
+
+	router.Register(
+		"presence_request",
+		presenceHandler.Request,
+	)
+
+	router.Register(
+		"presence",
+		presenceHandler.Update,
+	)
+
 	router.RegisterDebugHandlers()
 
 	return &Server{
-		addr:        addr,
-		router:      router,
-		clients:     session.NewManager(),
-		authService: authService,
+		addr:            addr,
+		router:          router,
+		clients:         clients,
+		authService:     authService,
+		presenceManager: presenceManager,
 	}
 }
 
@@ -149,9 +180,16 @@ func (s *Server) handleWebSocket(
 
 	defer func() {
 
-		s.clients.Remove(
-			client.ID,
-		)
+		if client.Authenticated {
+			if err := s.presenceManager.Leave(client); err != nil {
+				log.Printf(
+					"failed to broadcast user leave: %v",
+					err,
+				)
+			}
+		}
+
+		s.clients.Remove(client.ID)
 
 		log.Printf(
 			"client disconnected: %s",

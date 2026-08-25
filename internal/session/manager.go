@@ -56,3 +56,18 @@ func (m *Manager) Count() int {
 
 	return len(m.clients)
 }
+
+func (m *Manager) AuthenticatedClients() []*Client {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	clients := make([]*Client, 0)
+
+	for _, client := range m.clients {
+		if client.Authenticated {
+			clients = append(clients, client)
+		}
+	}
+
+	return clients
+}
