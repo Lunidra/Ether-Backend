@@ -1,6 +1,8 @@
 package presence
 
 import (
+	"strings"
+
 	"github.com/Lunidra/Ether-Backend/internal/protocol"
 	"github.com/Lunidra/Ether-Backend/internal/session"
 )
@@ -111,8 +113,26 @@ func (m *Manager) Join(client *session.Client) error {
 	return m.broadcastExcept(client, data)
 }
 
+func (m *Manager) HasAuthenticatedUUID(uuid string) bool {
+	for _, client := range m.clients.AuthenticatedClients() {
+		clientUUID, _ := client.Identity()
+
+		if strings.EqualFold(clientUUID, uuid) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (m *Manager) Leave(client *session.Client) error {
 	uuid, _ := client.Identity()
+
+	// If another authenticated session for this UUID exists,
+	// the user is still online.
+	if m.HasAuthenticatedUUID(uuid) {
+		return nil
+	}
 
 	data, err := protocol.LegacyMessage(
 		"user_leave",
@@ -124,7 +144,7 @@ func (m *Manager) Leave(client *session.Client) error {
 		return err
 	}
 
-	return m.broadcastExcept(client, data)
+	return m.broadcast(data)
 }
 
 func (m *Manager) Update(client *session.Client) error {
