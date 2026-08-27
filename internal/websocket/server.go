@@ -7,6 +7,8 @@ import (
 	gws "github.com/gorilla/websocket"
 
 	"github.com/Lunidra/Ether-Backend/internal/auth"
+	"github.com/Lunidra/Ether-Backend/internal/broadcast"
+	"github.com/Lunidra/Ether-Backend/internal/chat"
 	"github.com/Lunidra/Ether-Backend/internal/presence"
 	"github.com/Lunidra/Ether-Backend/internal/protocol"
 	"github.com/Lunidra/Ether-Backend/internal/session"
@@ -34,6 +36,7 @@ type Server struct {
 	clients         *session.Manager
 	authService     *auth.Service
 	presenceManager *presence.Manager
+	broadcast       *broadcast.Service
 	//presenceHandler *presence.Handler
 }
 
@@ -54,6 +57,10 @@ func NewServerWithService(
 	clients := session.NewManager()
 
 	presenceManager := presence.NewManager(
+		clients,
+	)
+
+	broadcastService := broadcast.NewService(
 		clients,
 	)
 
@@ -93,6 +100,15 @@ func NewServerWithService(
 		presenceHandler.Update,
 	)
 
+	chatHandler := chat.NewHandler(
+		broadcastService,
+	)
+
+	router.Register(
+		"chat",
+		chatHandler.Handle,
+	)
+
 	router.RegisterDebugHandlers()
 
 	return &Server{
@@ -101,6 +117,7 @@ func NewServerWithService(
 		clients:         clients,
 		authService:     authService,
 		presenceManager: presenceManager,
+		broadcast:       broadcastService,
 	}
 }
 
@@ -240,4 +257,18 @@ func (s *Server) handleWebSocket(
 			continue
 		}
 	}
+}
+
+// Broadcast sends an Ether broadcast packet to every authenticated client.
+//
+// This is intentionally server-side only. It is intended for future
+// administrative commands, console commands, or an HTTP administration API.
+func (s *Server) Broadcast(
+	sender string,
+	message string,
+) error {
+	return s.broadcast.Send(
+		sender,
+		message,
+	)
 }
