@@ -57,12 +57,13 @@ func NewServerWithService(
 
 	clients := session.NewManager()
 
-	presenceManager := presence.NewManager(
+	broadcastService := broadcast.NewService(
 		clients,
 	)
 
-	broadcastService := broadcast.NewService(
+	presenceManager := presence.NewManager(
 		clients,
+		broadcastService,
 	)
 
 	authHandler := auth.NewHandler(

@@ -89,3 +89,22 @@ func (s *Service) BroadcastRaw(data []byte) error {
 
 	return firstErr
 }
+
+func (s *Service) BroadcastExcept(
+	except *session.Client,
+	data []byte,
+) error {
+	var firstErr error
+
+	for _, client := range s.clients.AuthenticatedClients() {
+		if client.ID == except.ID {
+			continue
+		}
+
+		if err := client.Send(data); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+
+	return firstErr
+}

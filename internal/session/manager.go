@@ -1,6 +1,9 @@
 package session
 
-import "sync"
+import (
+	"strings"
+	"sync"
+)
 
 type Manager struct {
 	mu      sync.RWMutex
@@ -70,4 +73,17 @@ func (m *Manager) AuthenticatedClients() []*Client {
 	}
 
 	return clients
+}
+
+// Authenticated UUID
+func (m *Manager) HasAuthenticatedUUID(uuid string) bool {
+	for _, client := range m.AuthenticatedClients() {
+		clientUUID, _ := client.Identity()
+
+		if strings.EqualFold(clientUUID, uuid) {
+			return true
+		}
+	}
+
+	return false
 }

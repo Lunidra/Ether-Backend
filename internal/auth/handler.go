@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -244,19 +243,3 @@ func (h *Handler) Verify(
 }
 
 // Helper retained for tests that want to inspect the raw payload.
-func decodePayload(
-	data []byte,
-	target any,
-) error {
-
-	if len(data) == 0 {
-		return fmt.Errorf(
-			"empty payload",
-		)
-	}
-
-	return json.Unmarshal(
-		data,
-		target,
-	)
-}

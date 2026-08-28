@@ -1,19 +1,20 @@
 package presence
 
 import (
-	"strings"
-
+	"github.com/Lunidra/Ether-Backend/internal/broadcast"
 	"github.com/Lunidra/Ether-Backend/internal/protocol"
 	"github.com/Lunidra/Ether-Backend/internal/session"
 )
 
 type Manager struct {
-	clients *session.Manager
+	clients   *session.Manager
+	broadcast *broadcast.Service
 }
 
-func NewManager(clients *session.Manager) *Manager {
+func NewManager(clients *session.Manager, broadcastService *broadcast.Service) *Manager {
 	return &Manager{
-		clients: clients,
+		clients:   clients,
+		broadcast: broadcastService,
 	}
 }
 
@@ -110,19 +111,7 @@ func (m *Manager) Join(client *session.Client) error {
 		return err
 	}
 
-	return m.broadcastExcept(client, data)
-}
-
-func (m *Manager) HasAuthenticatedUUID(uuid string) bool {
-	for _, client := range m.clients.AuthenticatedClients() {
-		clientUUID, _ := client.Identity()
-
-		if strings.EqualFold(clientUUID, uuid) {
-			return true
-		}
-	}
-
-	return false
+	return m.broadcast.BroadcastExcept(client, data)
 }
 
 func (m *Manager) Leave(client *session.Client) error {
@@ -130,7 +119,7 @@ func (m *Manager) Leave(client *session.Client) error {
 
 	// If another authenticated session for this UUID exists,
 	// the user is still online.
-	if m.HasAuthenticatedUUID(uuid) {
+	if m.clients.HasAuthenticatedUUID(uuid) {
 		return nil
 	}
 
@@ -144,7 +133,7 @@ func (m *Manager) Leave(client *session.Client) error {
 		return err
 	}
 
-	return m.broadcast(data)
+	return m.broadcast.BroadcastRaw(data)
 }
 
 func (m *Manager) Update(client *session.Client) error {
@@ -164,36 +153,5 @@ func (m *Manager) Update(client *session.Client) error {
 		return err
 	}
 
-	return m.broadcast(data)
-}
-
-func (m *Manager) broadcast(data []byte) error {
-	var firstErr error
-
-	for _, client := range m.clients.AuthenticatedClients() {
-		if err := client.Send(data); err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
-
-	return firstErr
-}
-
-func (m *Manager) broadcastExcept(
-	except *session.Client,
-	data []byte,
-) error {
-	var firstErr error
-
-	for _, client := range m.clients.AuthenticatedClients() {
-		if client.ID == except.ID {
-			continue
-		}
-
-		if err := client.Send(data); err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
-
-	return firstErr
+	return m.broadcast.BroadcastRaw(data)
 }
