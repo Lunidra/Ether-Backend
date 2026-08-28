@@ -1,6 +1,7 @@
 package websocket
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 
@@ -143,6 +144,8 @@ func (s *Server) Handler() http.Handler {
 		s.handleWebSocket,
 	)
 
+	mux.HandleFunc("/dev/broadcast", s.handleDevBroadcast)
+
 	return mux
 }
 
@@ -272,4 +275,59 @@ func (s *Server) Broadcast(
 		sender,
 		message,
 	)
+}
+
+//BROADCAST FUNCTION
+
+type devBroadcastRequest struct {
+	Sender  string `json:"sender"`
+	Message string `json:"message"`
+}
+
+func (s *Server) handleDevBroadcast(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	if r.Method != http.MethodPost {
+		http.Error(
+			w,
+			"method not allowed",
+			http.StatusMethodNotAllowed,
+		)
+		return
+	}
+
+	var request devBroadcastRequest
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(
+			w,
+			"invalid JSON",
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	if err := s.Broadcast(
+		request.Sender,
+		request.Message,
+	); err != nil {
+		http.Error(
+			w,
+			err.Error(),
+			http.StatusBadRequest,
+		)
+		return
+	}
+
+	w.Header().Set(
+		"Content-Type",
+		"application/json",
+	)
+
+	w.WriteHeader(http.StatusOK)
+
+	_, _ = w.Write([]byte(
+		`{"success":true}`,
+	))
 }
