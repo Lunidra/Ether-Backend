@@ -263,11 +263,12 @@ func (s *Server) handleWebSocket(
 //
 // This is intentionally server-side only. It is intended for future
 // administrative commands, console commands, or an HTTP administration API.
+// Broadcast sends an Ether broadcast to every authenticated client.
 func (s *Server) Broadcast(
 	sender string,
 	message string,
 ) error {
-	return s.broadcast.Send(
+	return s.broadcast.Broadcast(
 		sender,
 		message,
 	)

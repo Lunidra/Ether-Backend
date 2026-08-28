@@ -23,31 +23,9 @@ func NewService(clients *session.Manager) *Service {
 	}
 }
 
-// SendRaw sends an already-encoded packet to every authenticated client.
-//
-// This is useful for packets whose wire format is not the normal
-// protocol.Message format, such as legacy EtherChat ChatMessage packets.
-func (s *Service) SendRaw(data []byte) error {
-	if len(data) == 0 {
-		return fmt.Errorf("cannot broadcast empty packet")
-	}
-
-	var firstErr error
-
-	for _, client := range s.clients.AuthenticatedClients() {
-		if err := client.Send(data); err != nil && firstErr == nil {
-			firstErr = err
-		}
-	}
-
-	return firstErr
-}
-
-// Send sends the legacy Ether broadcast packet.
-//
-// This is intentionally server-originated. Clients must never be allowed
-// to invoke this directly, otherwise any client could impersonate Ether.
-func (s *Service) Send(sender string, message string) error {
+// Broadcast sends a server-originated Ether broadcast to every
+// authenticated client.
+func (s *Service) Broadcast(sender, message string) error {
 	sender = strings.TrimSpace(sender)
 	message = strings.TrimSpace(message)
 
@@ -87,5 +65,27 @@ func (s *Service) Send(sender string, message string) error {
 		)
 	}
 
-	return s.SendRaw(data)
+	return s.BroadcastRaw(data)
+}
+
+// BroadcastRaw sends an already encoded packet to all authenticated
+// clients.
+//
+// This is intentionally kept separate from Broadcast because chat,
+// presence, and future services may need to broadcast their own
+// protocol payloads.
+func (s *Service) BroadcastRaw(data []byte) error {
+	if len(data) == 0 {
+		return fmt.Errorf("cannot broadcast empty packet")
+	}
+
+	var firstErr error
+
+	for _, client := range s.clients.AuthenticatedClients() {
+		if err := client.Send(data); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+
+	return firstErr
 }

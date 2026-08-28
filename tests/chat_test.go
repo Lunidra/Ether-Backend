@@ -496,6 +496,7 @@ func assertChatMessage(
 	}
 }
 
+/*
 func assertBroadcast(
 	t *testing.T,
 	message map[string]any,
@@ -528,6 +529,6 @@ func assertBroadcast(
 		)
 	}
 }
-
+*/
 // Keep auth imported here because this test file intentionally exercises
 // the development authentication path through the real server.

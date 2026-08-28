@@ -144,5 +144,5 @@ func (h *Handler) Handle(
 	 * The current Ether-Client expects ordinary incoming chat
 	 * to deserialize directly into ChatMessage.
 	 */
-	return h.broadcast.SendRaw(data)
+	return h.broadcast.BroadcastRaw(data)
 }
