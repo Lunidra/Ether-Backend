@@ -18,12 +18,6 @@ func NewService() *Service {
 	)
 }
 
-func NewDevelopmentService() *Service {
-	return NewServiceWithVerifier(
-		NewDevelopmentVerifier(),
-	)
-}
-
 func NewServiceWithVerifier(
 	verifier MojangVerifier,
 ) *Service {

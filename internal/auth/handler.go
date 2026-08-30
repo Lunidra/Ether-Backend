@@ -241,5 +241,3 @@ func (h *Handler) Verify(
 
 	return nil
 }
-
-// Helper retained for tests that want to inspect the raw payload.
