@@ -201,6 +201,8 @@ func (s *Server) handleWebSocket(
 
 	defer func() {
 
+		s.clients.Remove(client.ID)
+
 		if client.Authenticated {
 			if err := s.presenceManager.Leave(client); err != nil {
 				log.Printf(
@@ -209,8 +211,6 @@ func (s *Server) handleWebSocket(
 				)
 			}
 		}
-
-		s.clients.Remove(client.ID)
 
 		log.Printf(
 			"client disconnected: %s",
