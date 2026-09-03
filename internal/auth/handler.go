@@ -194,6 +194,13 @@ func (h *Handler) Verify(
 		)
 	}
 
+	if profile.ID != "" &&
+		normalizeUUID(profile.ID) != normalizeUUID(client.UUID) {
+		return fmt.Errorf(
+			"Mojang UUID does not match identified UUID",
+		)
+	}
+
 	if !h.service.Challenges().Consume(
 		payload.ServerID,
 	) {
@@ -213,10 +220,14 @@ func (h *Handler) Verify(
 		client.ID,
 	)
 
-	// Temporary token.
-	// Session-token generation will become its own component
-	// before this is considered production authentication.
-	token := client.ID
+	token, err := session.GenerateToken()
+
+	if err != nil {
+		return fmt.Errorf(
+			"failed to generate session token: %w",
+			err,
+		)
+	}
 
 	data, err := protocol.LegacyMessage(
 		"auth_success",
@@ -240,4 +251,12 @@ func (h *Handler) Verify(
 	}
 
 	return nil
+}
+
+func normalizeUUID(value string) string {
+	return strings.ReplaceAll(
+		strings.ToLower(strings.TrimSpace(value)),
+		"-",
+		"",
+	)
 }
