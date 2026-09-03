@@ -349,6 +349,17 @@ func (s *Server) handleWebSocket(
 				)
 			}
 
+			errorPacket, encodeErr := protocol.LegacyMessage(
+				"error",
+				map[string]any{
+					"message": err.Error(),
+				},
+			)
+
+			if encodeErr == nil {
+				_ = client.Send(errorPacket)
+			}
+
 			continue
 		}
 	}
