@@ -7,6 +7,8 @@ import (
 	"github.com/Lunidra/Ether-Backend/internal/session"
 )
 
+const maxPacketsPerSecond = 30
+
 type Handler func(
 	client *session.Client,
 	message Message,
@@ -45,6 +47,12 @@ func (r *Router) Handle(
 		return fmt.Errorf(
 			"unsupported protocol version: %d",
 			message.Version,
+		)
+	}
+
+	if !client.AllowPacket(maxPacketsPerSecond) {
+		return fmt.Errorf(
+			"packet rate limit exceeded",
 		)
 	}
 

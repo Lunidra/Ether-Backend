@@ -26,6 +26,9 @@ type Client struct {
 	Authenticated bool
 	Identified    bool
 
+	PacketCount  int
+	PacketWindow time.Time
+
 	UUID     string
 	Username string
 
@@ -69,4 +72,28 @@ func (c *Client) Identity() (uuid string, username string) {
 	defer c.mu.Unlock()
 
 	return c.UUID, c.Username
+}
+
+func (c *Client) AllowPacket(
+	maxPackets int,
+) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now := time.Now()
+
+	if c.PacketWindow.IsZero() ||
+		now.Sub(c.PacketWindow) >= time.Second {
+
+		c.PacketWindow = now
+		c.PacketCount = 0
+	}
+
+	if c.PacketCount >= maxPackets {
+		return false
+	}
+
+	c.PacketCount++
+
+	return true
 }

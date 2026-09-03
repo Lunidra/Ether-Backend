@@ -8,7 +8,7 @@ import (
 const Version = 1
 
 type Message struct {
-	Version int `json:"version,omitempty"`
+	Version int    `json:"version,omitempty"`
 	Type    string `json:"type"`
 
 	ID string `json:"id,omitempty"`
@@ -66,10 +66,14 @@ func Decode(data []byte) (Message, error) {
 	}
 
 	if value, ok := raw["id"]; ok {
-		_ = json.Unmarshal(
+		if err := json.Unmarshal(
 			value,
 			&message.ID,
-		)
+		); err != nil {
+			return Message{}, fmt.Errorf(
+				"invalid message ID",
+			)
+		}
 	}
 
 	if value, ok := raw["payload"]; ok {
@@ -129,10 +133,10 @@ func (m Message) Field(
 // LegacyMessage creates a message using the original
 // Ether wire format:
 //
-// {
-//   "type": "...",
-//   "serverId": "..."
-// }
+//	{
+//	  "type": "...",
+//	  "serverId": "..."
+//	}
 func LegacyMessage(
 	messageType string,
 	fields map[string]any,

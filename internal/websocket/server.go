@@ -24,6 +24,8 @@ const (
 
 	pongWait   = 60 * time.Second
 	pingPeriod = 30 * time.Second
+
+	maxConnections = 1000
 )
 
 var upgrader = gws.Upgrader{
@@ -43,7 +45,7 @@ type Server struct {
 	authService     *auth.Service
 	presenceManager *presence.Manager
 	broadcast       *broadcast.Service
-	//presenceHandler *presence.Handler
+	limiter         *connectionLimiter
 }
 
 func NewServer(addr string) *Server {
@@ -57,6 +59,8 @@ func NewServerWithService(
 	addr string,
 	authService *auth.Service,
 ) *Server {
+
+	limiter := newConnectionLimiter(10)
 
 	router := protocol.NewRouter()
 
@@ -125,6 +129,7 @@ func NewServerWithService(
 		authService:     authService,
 		presenceManager: presenceManager,
 		broadcast:       broadcastService,
+		limiter:         limiter,
 	}
 }
 
@@ -189,6 +194,17 @@ func (s *Server) handleWebSocket(
 	r *http.Request,
 ) {
 
+	ip := clientIP(r)
+
+	if !s.limiter.Allow(ip) {
+		http.Error(
+			w,
+			"too many connections",
+			http.StatusTooManyRequests,
+		)
+		return
+	}
+
 	conn, err :=
 		upgrader.Upgrade(
 			w,
@@ -197,6 +213,8 @@ func (s *Server) handleWebSocket(
 		)
 
 	if err != nil {
+		s.limiter.Release(ip)
+
 		log.Printf(
 			"websocket upgrade failed: %v",
 			err,
@@ -217,7 +235,19 @@ func (s *Server) handleWebSocket(
 		)
 	})
 
-	s.clients.Add(client)
+	if !s.clients.TryAdd(client, maxConnections) {
+		_ = conn.WriteControl(
+			gws.CloseMessage,
+			gws.FormatCloseMessage(
+				gws.CloseTryAgainLater,
+				"server is at connection capacity",
+			),
+			time.Now().Add(time.Second),
+		)
+
+		_ = conn.Close()
+		return
+	}
 
 	log.Printf(
 		"client connected: %s",
@@ -229,6 +259,8 @@ func (s *Server) handleWebSocket(
 		s.authService.Challenges().RemoveForClient(client.ID)
 
 		s.clients.Remove(client.ID)
+
+		s.limiter.Release(ip)
 
 		if client.Authenticated {
 			if err := s.presenceManager.Leave(client); err != nil {

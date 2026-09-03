@@ -87,3 +87,19 @@ func (m *Manager) HasAuthenticatedUUID(uuid string) bool {
 
 	return false
 }
+
+func (m *Manager) TryAdd(
+	client *Client,
+	max int,
+) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if len(m.clients) >= max {
+		return false
+	}
+
+	m.clients[client.ID] = client
+
+	return true
+}
