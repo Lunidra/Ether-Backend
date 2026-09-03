@@ -180,7 +180,7 @@ func (s *Server) Start() error {
 	)
 
 	log.Printf(
-		"WebSocket endpoint: ws://%s/ws",
+		"WebSocket endpoint: /ws",
 		s.addr,
 	)
 
@@ -325,12 +325,13 @@ func (s *Server) handleWebSocket(
 			protocol.Decode(data)
 
 		if err != nil {
-
-			log.Printf(
-				"invalid packet from %s: %v",
-				client.ID,
-				err,
-			)
+			if client.AllowViolationLog(5) {
+				log.Printf(
+					"invalid packet from %s: %v",
+					client.ID,
+					err,
+				)
+			}
 
 			continue
 		}

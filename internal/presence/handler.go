@@ -28,7 +28,7 @@ func (h *Handler) Request(
 	client *session.Client,
 	message protocol.Message,
 ) error {
-	if !client.Authenticated {
+	if !client.IsAuthenticated() {
 		return fmt.Errorf("authentication required")
 	}
 
@@ -39,7 +39,7 @@ func (h *Handler) Update(
 	client *session.Client,
 	message protocol.Message,
 ) error {
-	if !client.Authenticated {
+	if !client.IsAuthenticated() {
 		return fmt.Errorf("authentication required")
 	}
 
