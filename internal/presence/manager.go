@@ -1,6 +1,8 @@
 package presence
 
 import (
+	"sync"
+
 	"github.com/Lunidra/Ether-Backend/internal/broadcast"
 	"github.com/Lunidra/Ether-Backend/internal/protocol"
 	"github.com/Lunidra/Ether-Backend/internal/session"
@@ -9,12 +11,16 @@ import (
 type Manager struct {
 	clients   *session.Manager
 	broadcast *broadcast.Service
+
+	mu      sync.RWMutex
+	present map[string]bool
 }
 
 func NewManager(clients *session.Manager, broadcastService *broadcast.Service) *Manager {
 	return &Manager{
 		clients:   clients,
 		broadcast: broadcastService,
+		present:   make(map[string]bool),
 	}
 }
 

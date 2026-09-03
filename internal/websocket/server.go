@@ -77,6 +77,7 @@ func NewServerWithService(
 
 	authHandler := auth.NewHandler(
 		authService,
+		clients,
 		func(client *session.Client) {
 			if err := presenceManager.Join(client); err != nil {
 				log.Printf(
@@ -326,11 +327,13 @@ func (s *Server) handleWebSocket(
 			message,
 		); err != nil {
 
-			log.Printf(
-				"packet rejected from %s: %v",
-				client.ID,
-				err,
-			)
+			if client.AllowViolationLog(5) {
+				log.Printf(
+					"packet rejected from %s: %v",
+					client.ID,
+					err,
+				)
+			}
 
 			continue
 		}

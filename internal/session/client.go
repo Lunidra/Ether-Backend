@@ -29,6 +29,9 @@ type Client struct {
 	PacketCount  int
 	PacketWindow time.Time
 
+	ViolationCount  int
+	ViolationWindow time.Time
+
 	UUID     string
 	Username string
 
@@ -94,6 +97,64 @@ func (c *Client) AllowPacket(
 	}
 
 	c.PacketCount++
+
+	return true
+}
+
+func (c *Client) AllowViolationLog(
+	maxViolations int,
+) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now := time.Now()
+
+	if c.ViolationWindow.IsZero() ||
+		now.Sub(c.ViolationWindow) >= time.Second {
+
+		c.ViolationWindow = now
+		c.ViolationCount = 0
+	}
+
+	if c.ViolationCount >= maxViolations {
+		return false
+	}
+
+	c.ViolationCount++
+
+	return true
+}
+
+func (c *Client) IsAuthenticated() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.Authenticated
+}
+
+func (c *Client) IsIdentified() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.Identified
+}
+
+func (c *Client) SetIdentified() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.Identified = true
+}
+
+func (c *Client) SetAuthenticated() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.Authenticated {
+		return false
+	}
+
+	c.Authenticated = true
 
 	return true
 }

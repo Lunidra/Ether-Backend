@@ -70,6 +70,18 @@ func (h *Handler) Update(
 	payload.ServerIP = strings.TrimSpace(payload.ServerIP)
 	payload.GameVersion = strings.TrimSpace(payload.GameVersion)
 
+	if len(payload.Server) > 128 {
+		return fmt.Errorf("server name too long")
+	}
+
+	if len(payload.ServerIP) > 255 {
+		return fmt.Errorf("server IP too long")
+	}
+
+	if len(payload.GameVersion) > 32 {
+		return fmt.Errorf("game version too long")
+	}
+
 	if payload.Server == "" {
 		payload.Server = "Unknown"
 	}

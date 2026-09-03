@@ -22,15 +22,18 @@ type VerifyPayload struct {
 
 type Handler struct {
 	service         *Service
+	clients         *session.Manager
 	onAuthenticated func(*session.Client)
 }
 
 func NewHandler(
 	service *Service,
+	clients *session.Manager,
 	onAuthenticated func(*session.Client),
 ) *Handler {
 	return &Handler{
 		service:         service,
+		clients:         clients,
 		onAuthenticated: onAuthenticated,
 	}
 }
@@ -40,13 +43,13 @@ func (h *Handler) Identify(
 	message protocol.Message,
 ) error {
 
-	if client.Authenticated {
+	if client.IsAuthenticated() {
 		return fmt.Errorf(
 			"client is already authenticated",
 		)
 	}
 
-	if client.Identified {
+	if client.IsIdentified() {
 		return fmt.Errorf(
 			"client has already been identified",
 		)
@@ -102,7 +105,7 @@ func (h *Handler) Identify(
 
 	client.UUID = payload.UUID
 	client.Username = payload.Username
-	client.Identified = true
+	client.SetIdentified()
 
 	challenge, err :=
 		h.service.Challenges().Create(
@@ -151,13 +154,13 @@ func (h *Handler) Verify(
 	message protocol.Message,
 ) error {
 
-	if client.Authenticated {
+	if client.IsAuthenticated() {
 		return fmt.Errorf(
 			"client is already authenticated",
 		)
 	}
 
-	if !client.Identified {
+	if !client.IsIdentified() {
 		return fmt.Errorf(
 			"client must identify before verification",
 		)
@@ -247,7 +250,12 @@ func (h *Handler) Verify(
 		return fmt.Errorf("challenge expired or invalid")
 	}
 
-	client.Authenticated = true
+	if !h.clients.TryAuthenticate(client) {
+		return fmt.Errorf(
+			"minecraft account is already connected",
+		)
+	}
+
 	if h.onAuthenticated != nil {
 		h.onAuthenticated(client)
 	}

@@ -35,6 +35,12 @@ func Decode(data []byte) (Message, error) {
 		)
 	}
 
+	if raw == nil {
+		return Message{}, fmt.Errorf(
+			"message must be a JSON object",
+		)
+	}
+
 	var message Message
 
 	if value, ok := raw["version"]; ok {

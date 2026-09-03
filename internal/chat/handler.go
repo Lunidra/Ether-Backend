@@ -30,7 +30,7 @@ func (h *Handler) Handle(
 	message protocol.Message,
 ) error {
 
-	if !client.Authenticated {
+	if !client.IsAuthenticated() {
 		return fmt.Errorf(
 			"authentication required",
 		)

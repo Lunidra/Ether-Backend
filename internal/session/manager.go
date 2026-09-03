@@ -103,3 +103,28 @@ func (m *Manager) TryAdd(
 
 	return true
 }
+
+func (m *Manager) TryAuthenticate(
+	client *Client,
+) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	clientUUID, _ := client.Identity()
+
+	for _, other := range m.clients {
+		if !other.Authenticated {
+			continue
+		}
+
+		otherUUID, _ := other.Identity()
+
+		if strings.EqualFold(otherUUID, clientUUID) {
+			return false
+		}
+	}
+
+	client.Authenticated = true
+
+	return true
+}
