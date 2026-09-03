@@ -3,10 +3,12 @@ package auth
 import (
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 
 	"github.com/Lunidra/Ether-Backend/internal/protocol"
 	"github.com/Lunidra/Ether-Backend/internal/session"
+	"github.com/google/uuid"
 )
 
 type IdentifyPayload struct {
@@ -37,6 +39,18 @@ func (h *Handler) Identify(
 	client *session.Client,
 	message protocol.Message,
 ) error {
+
+	if client.Authenticated {
+		return fmt.Errorf(
+			"client is already authenticated",
+		)
+	}
+
+	if client.Identified {
+		return fmt.Errorf(
+			"client has already been identified",
+		)
+	}
 
 	var payload IdentifyPayload
 
@@ -74,8 +88,21 @@ func (h *Handler) Identify(
 		)
 	}
 
+	if _, err := uuid.Parse(payload.UUID); err != nil {
+		return fmt.Errorf("invalid UUID")
+	}
+
+	if len(payload.Username) < 3 || len(payload.Username) > 16 {
+		return fmt.Errorf("invalid username")
+	}
+
+	if matched, _ := regexp.MatchString(`^[A-Za-z0-9_]+$`, payload.Username); !matched {
+		return fmt.Errorf("invalid username")
+	}
+
 	client.UUID = payload.UUID
 	client.Username = payload.Username
+	client.Identified = true
 
 	challenge, err :=
 		h.service.Challenges().Create(
@@ -123,6 +150,18 @@ func (h *Handler) Verify(
 	client *session.Client,
 	message protocol.Message,
 ) error {
+
+	if client.Authenticated {
+		return fmt.Errorf(
+			"client is already authenticated",
+		)
+	}
+
+	if !client.Identified {
+		return fmt.Errorf(
+			"client must identify before verification",
+		)
+	}
 
 	var payload VerifyPayload
 
@@ -203,10 +242,9 @@ func (h *Handler) Verify(
 
 	if !h.service.Challenges().Consume(
 		payload.ServerID,
+		client.ID,
 	) {
-		return fmt.Errorf(
-			"authentication challenge could not be consumed",
-		)
+		return fmt.Errorf("challenge expired or invalid")
 	}
 
 	client.Authenticated = true
@@ -220,20 +258,9 @@ func (h *Handler) Verify(
 		client.ID,
 	)
 
-	token, err := session.GenerateToken()
-
-	if err != nil {
-		return fmt.Errorf(
-			"failed to generate session token: %w",
-			err,
-		)
-	}
-
 	data, err := protocol.LegacyMessage(
 		"auth_success",
-		map[string]any{
-			"token": token,
-		},
+		map[string]any{},
 	)
 
 	if err != nil {

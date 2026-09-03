@@ -48,6 +48,29 @@ func (r *Router) Handle(
 		)
 	}
 
+	if !client.Authenticated &&
+		message.Type != "auth_hello" &&
+		message.Type != "auth_verify" {
+
+		return fmt.Errorf(
+			"authentication required",
+		)
+	}
+
+	if message.Type == "auth_verify" &&
+		!client.Identified {
+		return fmt.Errorf("client must identify before verification")
+	}
+
+	if client.Authenticated &&
+		(message.Type == "auth_hello" ||
+			message.Type == "auth_verify") {
+
+		return fmt.Errorf(
+			"client is already authenticated",
+		)
+	}
+
 	handler, exists :=
 		r.handlers[message.Type]
 

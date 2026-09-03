@@ -14,7 +14,7 @@ const challengeLifetime = 2 * time.Minute
 type Challenge struct {
 	ServerID  string
 	ClientID  string
-	CreatedAt time.Time
+	ExpiresAt time.Time
 }
 
 type ChallengeStore struct {
@@ -46,7 +46,7 @@ func (s *ChallengeStore) Create(
 	challenge := Challenge{
 		ServerID:  hex.EncodeToString(bytes),
 		ClientID:  clientID,
-		CreatedAt: time.Now(),
+		ExpiresAt: time.Now().Add(challengeLifetime),
 	}
 
 	s.mu.Lock()
@@ -70,9 +70,7 @@ func (s *ChallengeStore) Get(
 		return Challenge{}, false
 	}
 
-	if time.Since(
-		challenge.CreatedAt,
-	) > challengeLifetime {
+	if time.Now().After(challenge.ExpiresAt) {
 
 		delete(
 			s.challenges,
@@ -87,6 +85,7 @@ func (s *ChallengeStore) Get(
 
 func (s *ChallengeStore) Consume(
 	serverID string,
+	clientID string,
 ) bool {
 
 	s.mu.Lock()
@@ -99,12 +98,27 @@ func (s *ChallengeStore) Consume(
 		return false
 	}
 
+	if challenge.ClientID != clientID {
+		return false
+	}
+
 	delete(
 		s.challenges,
 		serverID,
 	)
 
-	return time.Since(
-		challenge.CreatedAt,
-	) <= challengeLifetime
+	return !time.Now().After(challenge.ExpiresAt)
+}
+
+func (s *ChallengeStore) RemoveForClient(
+	clientID string,
+) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for serverID, challenge := range s.challenges {
+		if challenge.ClientID == clientID {
+			delete(s.challenges, serverID)
+		}
+	}
 }

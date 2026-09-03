@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"time"
 
 	gws "github.com/gorilla/websocket"
 
@@ -18,16 +19,20 @@ import (
 const (
 	readBufferSize  = 4096
 	writeBufferSize = 4096
+
+	maxMessageSize = 64 * 1024
+
+	pongWait   = 60 * time.Second
+	pingPeriod = 30 * time.Second
 )
 
 var upgrader = gws.Upgrader{
 	ReadBufferSize:  readBufferSize,
 	WriteBufferSize: writeBufferSize,
 
-	// Development only.
-	// This must be restricted before production deployment.
+	//Check Orign
 	CheckOrigin: func(r *http.Request) bool {
-		return true
+		return r.Header.Get("Origin") == ""
 	},
 }
 
@@ -111,7 +116,7 @@ func NewServerWithService(
 		chatHandler.Handle,
 	)
 
-	router.RegisterDebugHandlers()
+	//router.RegisterDebugHandlers()
 
 	return &Server{
 		addr:            addr,
@@ -125,12 +130,16 @@ func NewServerWithService(
 
 // DEV SERVER
 func NewDevelopmentServer(addr string) *Server {
-	return NewServerWithService(
+	server := NewServerWithService(
 		addr,
 		auth.NewServiceWithVerifier(
 			auth.NewDevelopmentVerifier(),
 		),
 	)
+
+	server.router.RegisterDebugHandlers()
+
+	return server
 }
 
 // Handler returns the HTTP handler used by the backend.
@@ -145,6 +154,13 @@ func (s *Server) Handler() http.Handler {
 		s.handleWebSocket,
 	)
 
+	return mux
+}
+
+func (s *Server) DevelopmentHandler() http.Handler {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/ws", s.handleWebSocket)
 	mux.HandleFunc("/dev/broadcast", s.handleDevBroadcast)
 
 	return mux
@@ -192,6 +208,15 @@ func (s *Server) handleWebSocket(
 	client :=
 		session.NewClient(conn)
 
+	conn.SetReadLimit(maxMessageSize)
+	conn.SetReadDeadline(time.Now().Add(pongWait))
+
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(
+			time.Now().Add(pongWait),
+		)
+	})
+
 	s.clients.Add(client)
 
 	log.Printf(
@@ -200,6 +225,8 @@ func (s *Server) handleWebSocket(
 	)
 
 	defer func() {
+
+		s.authService.Challenges().RemoveForClient(client.ID)
 
 		s.clients.Remove(client.ID)
 
@@ -218,6 +245,21 @@ func (s *Server) handleWebSocket(
 		)
 
 		conn.Close()
+	}()
+
+	ticker := time.NewTicker(pingPeriod)
+	defer ticker.Stop()
+
+	go func() {
+		for range ticker.C {
+			if err := conn.WriteControl(
+				gws.PingMessage,
+				nil,
+				time.Now().Add(10*time.Second),
+			); err != nil {
+				return
+			}
+		}
 	}()
 
 	for {

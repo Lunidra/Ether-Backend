@@ -24,6 +24,7 @@ type Client struct {
 	mu sync.Mutex
 
 	Authenticated bool
+	Identified    bool
 
 	UUID     string
 	Username string
