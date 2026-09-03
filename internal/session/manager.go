@@ -67,7 +67,7 @@ func (m *Manager) AuthenticatedClients() []*Client {
 	clients := make([]*Client, 0)
 
 	for _, client := range m.clients {
-		if client.Authenticated {
+		if client.IsAuthenticated() {
 			clients = append(clients, client)
 		}
 	}
@@ -107,13 +107,13 @@ func (m *Manager) TryAdd(
 func (m *Manager) TryAuthenticate(
 	client *Client,
 ) bool {
+	clientUUID, _ := client.Identity()
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	clientUUID, _ := client.Identity()
-
 	for _, other := range m.clients {
-		if !other.Authenticated {
+		if !other.IsAuthenticated() {
 			continue
 		}
 

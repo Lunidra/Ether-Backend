@@ -237,16 +237,18 @@ func (s *Server) handleWebSocket(
 	})
 
 	if !s.clients.TryAdd(client, maxConnections) {
+		s.limiter.Release(ip)
+
 		_ = conn.WriteControl(
 			gws.CloseMessage,
 			gws.FormatCloseMessage(
 				gws.CloseTryAgainLater,
-				"server is at connection capacity",
+				"server is full",
 			),
 			time.Now().Add(time.Second),
 		)
 
-		_ = conn.Close()
+		conn.Close()
 		return
 	}
 
@@ -263,7 +265,7 @@ func (s *Server) handleWebSocket(
 
 		s.limiter.Release(ip)
 
-		if client.Authenticated {
+		if client.IsAuthenticated() {
 			if err := s.presenceManager.Leave(client); err != nil {
 				log.Printf(
 					"failed to broadcast user leave: %v",
@@ -302,6 +304,17 @@ func (s *Server) handleWebSocket(
 
 		if err != nil {
 			return
+		}
+
+		if !client.AllowPacket(30) {
+			if client.AllowViolationLog(5) {
+				log.Printf(
+					"packet rate limit exceeded for %s",
+					client.ID,
+				)
+			}
+
+			continue
 		}
 
 		if messageType != gws.TextMessage {

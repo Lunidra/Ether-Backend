@@ -7,8 +7,6 @@ import (
 	"github.com/Lunidra/Ether-Backend/internal/session"
 )
 
-const maxPacketsPerSecond = 30
-
 type Handler func(
 	client *session.Client,
 	message Message,
@@ -50,13 +48,7 @@ func (r *Router) Handle(
 		)
 	}
 
-	if !client.AllowPacket(maxPacketsPerSecond) {
-		return fmt.Errorf(
-			"packet rate limit exceeded",
-		)
-	}
-
-	if !client.Authenticated &&
+	if !client.IsAuthenticated() &&
 		message.Type != "auth_hello" &&
 		message.Type != "auth_verify" {
 
@@ -66,17 +58,23 @@ func (r *Router) Handle(
 	}
 
 	if message.Type == "auth_verify" &&
-		!client.Identified {
+		!client.IsIdentified() {
 		return fmt.Errorf("client must identify before verification")
 	}
 
-	if client.Authenticated &&
+	if client.IsAuthenticated() &&
 		(message.Type == "auth_hello" ||
 			message.Type == "auth_verify") {
 
 		return fmt.Errorf(
 			"client is already authenticated",
 		)
+	}
+
+	if message.Type == "auth_hello" || message.Type == "auth_verify" {
+		if !client.AllowAuthAttempt(5) {
+			return fmt.Errorf("authentication rate limit exceeded")
+		}
 	}
 
 	handler, exists :=

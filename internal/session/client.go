@@ -26,6 +26,9 @@ type Client struct {
 	Authenticated bool
 	Identified    bool
 
+	AuthAttempts      int
+	AuthAttemptWindow time.Time
+
 	PacketCount  int
 	PacketWindow time.Time
 
@@ -97,6 +100,27 @@ func (c *Client) AllowPacket(
 	}
 
 	c.PacketCount++
+
+	return true
+}
+
+func (c *Client) AllowAuthAttempt(maxAttempts int) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	now := time.Now()
+
+	if c.AuthAttemptWindow.IsZero() ||
+		now.Sub(c.AuthAttemptWindow) >= time.Minute {
+		c.AuthAttemptWindow = now
+		c.AuthAttempts = 0
+	}
+
+	if c.AuthAttempts >= maxAttempts {
+		return false
+	}
+
+	c.AuthAttempts++
 
 	return true
 }
