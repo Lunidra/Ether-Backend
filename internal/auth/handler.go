@@ -105,7 +105,6 @@ func (h *Handler) Identify(
 
 	client.UUID = payload.UUID
 	client.Username = payload.Username
-	client.SetIdentified()
 
 	challenge, err :=
 		h.service.Challenges().Create(
@@ -118,6 +117,8 @@ func (h *Handler) Identify(
 			err,
 		)
 	}
+
+	client.SetIdentified()
 
 	data, err := protocol.LegacyMessage(
 		"auth_challenge",
