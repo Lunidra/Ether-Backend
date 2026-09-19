@@ -11,7 +11,7 @@ func main() {
 	addr := os.Getenv("ETHER_BACKEND_ADDR")
 
 	if addr == "" {
-		addr = "127.0.0.1:2832"
+		addr = "0.0.0.0:2832"
 	}
 
 	server := websocket.NewServer(addr)
