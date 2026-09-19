@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	gws "github.com/gorilla/websocket"
@@ -11,6 +12,7 @@ import (
 	"github.com/Lunidra/Ether-Backend/internal/auth"
 	"github.com/Lunidra/Ether-Backend/internal/broadcast"
 	"github.com/Lunidra/Ether-Backend/internal/chat"
+	"github.com/Lunidra/Ether-Backend/internal/minecraft"
 	"github.com/Lunidra/Ether-Backend/internal/presence"
 	"github.com/Lunidra/Ether-Backend/internal/protocol"
 	"github.com/Lunidra/Ether-Backend/internal/session"
@@ -39,13 +41,15 @@ var upgrader = gws.Upgrader{
 }
 
 type Server struct {
-	addr            string
-	router          *protocol.Router
-	clients         *session.Manager
-	authService     *auth.Service
-	presenceManager *presence.Manager
-	broadcast       *broadcast.Service
-	limiter         *connectionLimiter
+	addr             string
+	router           *protocol.Router
+	clients          *session.Manager
+	authService      *auth.Service
+	presenceManager  *presence.Manager
+	broadcast        *broadcast.Service
+	limiter          *connectionLimiter
+	minecraftService *minecraft.Service
+	minecraftHandler *minecraft.Handler
 }
 
 func NewServer(addr string) *Server {
@@ -61,6 +65,13 @@ func NewServerWithService(
 ) *Server {
 
 	limiter := newConnectionLimiter(10)
+
+	minecraftService := minecraft.NewService()
+
+	minecraftHandler := minecraft.NewHandler(
+		minecraftService,
+		os.Getenv("ETHER_LINK_SECRET"),
+	)
 
 	router := protocol.NewRouter()
 
@@ -124,13 +135,15 @@ func NewServerWithService(
 	//router.RegisterDebugHandlers()
 
 	return &Server{
-		addr:            addr,
-		router:          router,
-		clients:         clients,
-		authService:     authService,
-		presenceManager: presenceManager,
-		broadcast:       broadcastService,
-		limiter:         limiter,
+		addr:             addr,
+		router:           router,
+		clients:          clients,
+		authService:      authService,
+		presenceManager:  presenceManager,
+		broadcast:        broadcastService,
+		limiter:          limiter,
+		minecraftService: minecraftService,
+		minecraftHandler: minecraftHandler,
 	}
 }
 
@@ -158,6 +171,21 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc(
 		"/ws",
 		s.handleWebSocket,
+	)
+
+	mux.HandleFunc(
+		"/internal/minecraft/status",
+		s.minecraftHandler.Status,
+	)
+
+	mux.HandleFunc(
+		"/internal/minecraft/link",
+		s.minecraftHandler.Link,
+	)
+
+	mux.HandleFunc(
+		"/internal/minecraft/unlink",
+		s.minecraftHandler.Unlink,
 	)
 
 	return mux
