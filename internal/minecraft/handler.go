@@ -3,6 +3,7 @@ package minecraft
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -89,6 +90,12 @@ func (h *Handler) Link(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf(
+		"[Minecraft] Linked %s (%s)",
+		request.Username,
+		request.UUID,
+	)
+
 	writeJSON(w, http.StatusOK, linkResponse{
 		Success: true,
 		Linked:  true,
@@ -131,6 +138,12 @@ func (h *Handler) Unlink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	unlinked := h.service.Unlink(request.UUID)
+	if unlinked {
+		log.Printf(
+			"[Minecraft] Unlinked %s",
+			request.UUID,
+		)
+	}
 
 	writeJSON(w, http.StatusOK, unlinkResponse{
 		Success:  true,

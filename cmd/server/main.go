@@ -13,7 +13,6 @@ func main() {
 	if addr == "" {
 		addr = "0.0.0.0:2832"
 	}
-
 	if os.Getenv("ETHER_LINK_SECRET") == "" {
 		log.Fatal("ETHER_LINK_SECRET is not configured")
 	}
